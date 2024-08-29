@@ -1,10 +1,11 @@
-// constant //<>//
-final static float LeafGrowEnergy = 30;
-final static float makeSeedEnergy = 150;
-static float sunEnergy = 3;
-final static int startCellEnergy = 50;
+// constant //<>// //<>//
+final static float LeafGrowEnergy = 1500;
+final static float makeSeedEnergy = 7500;
+final static int startCellEnergy = 5500;
+static int sunEnergy = 3000;
+static final int generationTime = 12000;
 
-final int gridSize = 10;
+final int gridSize = 32;
 
 // 35 62 49 20 45 0 38 36 27 59 30 30 20 63 34 14 62 28 7 3 27 53 29 10 5 6 14 37 4 15 61 6 18 23 22 54 20 13 3 56 20 1 34 56 52 48 34 63 60 14 18 18 46 57 6 57 3 22 61 5 46 23 1 40
 //{11,20,46,52,54,54,39,44,45,61,47,26,27,30,20,52,31,30,6,49,1,51,39,9,13,49,1,10,7,5,3,57,38,43,39,45,37,58,30,63,23,50,2,47,44,45,52,14,0,9,22,4,40,49,62,24,12,4,39,30,55,10,28,26}
@@ -54,15 +55,14 @@ class Genome {
 class Cell {
 
   // genes - commnad
-  final static byte makeSeed = 1;
 
-  final static byte checkIamSeed = 7;
-  final static byte checkIamOnTop = 8;
-  final static byte checkIamCoverdByOther = 9;
-
-  final static byte checkDirEmpty = 10; // next is direction
-  final static byte growLeaf = 20; // next is direction
+  final static byte makeSeed = 5;
+  final static byte growLeaf = 10;
+  final static byte isThereSun = 15;
+  final static byte bifurcate = 20;
+  final static byte checkIamSeed = 25;
   final static byte photosynthesis = 30;
+  final static byte timeMoreThanHalf = 35;
 
   Genome genome = new Genome();
   byte pc = 0;
@@ -79,17 +79,37 @@ class Cell {
 
   Cell (Cell other) {
     this.genome = new Genome(other.genome);
-    this.energy = LeafGrowEnergy;
+    this.energy = other.energy/2;
     this.isSeed = false;
     other.energy = this.energy;
     this.id = other.id;
   }
 
+  ArrayList<PVector> getEmptyDirections(int x, int y) {
+    ArrayList<PVector> dirs = new ArrayList();
+    for (int i = 0; i < 5; ++i) {
+      PVector d = newDir(x, y, i);
+      if (d != null) {
+        dirs.add(d);
+      }
+    }
+    return dirs;
+  }
+
+  PVector getDirection(int x, int y) {
+    ArrayList<PVector> dirs = getEmptyDirections(x, y);
+    int size = dirs.size();
+    if (size == 0) return null;
+    if (size == 1) return dirs.get(0);
+    return dirs.get((int)random(size));
+  }
+
   PVector newDir(int x, int y, int direction) {
-    //println("direction: " + direction + ", " + direction % 5);
-    switch(direction % 5) {
+
+    switch(direction) {
     case 0:
       if (x == width/gridSize - 1) return null;
+      if (y == height/gridSize - 1) return null;
       return new PVector(x + 1, y);
 
     case 1:
@@ -108,6 +128,7 @@ class Cell {
 
     case 4:
       if (x == 0) return null;
+      if (y == height/gridSize - 1) return null;
       return new PVector(x-1, y);
     }
     return null;
@@ -131,14 +152,14 @@ class Cell {
       oldSeed = true;
     }
 
-    byte cmd = genome.genes[((pc++ & 0xff) % Genome.genomeSize)];
+    byte cmd = genome.genes[((pc & 0xff) % Genome.genomeSize)];
 
     switch(cmd) {
     case makeSeed:
       {
-        if (this.isSeed) break;
-        PVector v = newDir(x, y, (int)random(5));
-        if (dirIsEmpty(v) && energy > makeSeedEnergy) {
+        if (this.isSeed) break; //<>//
+        PVector v = getDirection(x, y);
+        if (v != null && energy > makeSeedEnergy) {
           Cell c = new Cell(this);
           array[(int)v.x][(int)v.y] = c;
           c.isSeed = true;
@@ -146,73 +167,107 @@ class Cell {
             c.genome.mutate();
           }
           c.id = (int)random(65000);
+          pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
+        } else {
+          pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
         }
       }
       break;
 
     case photosynthesis:
       {
+        if (isSeed) break; //<>//
         float sunAmount = sunEnergy/2;
-        int cellAmount = 0;
+        int cellCnt = 0;
         for (int yy = 0; yy < height/gridSize; ++yy) {
           Cell c = array[x][yy];
           if (c != null && !c.isSeed) {
             if (c == this) break;
-            if (cellAmount++ > 2) break;
-            c.energy += sunAmount;
+            if (cellCnt++ > 3) {
+              sunAmount= 0;
+              break;
+            }
             sunAmount /=1.5;
           }
         }
         this.energy += sunAmount;
+        if (sunAmount > 0) {
+          pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
+        } else {
+          pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
+        }
       }
       break;
 
-    case checkDirEmpty:
-      {
-        int direction = genome.genes[((pc++ & 0xff) % Genome.genomeSize)];
-        if (dirIsEmpty(newDir(x, y, direction))) {
-          pc = genome.genes[(((pc) & 0xff) % Genome.genomeSize)];
-        } else {
-          pc = genome.genes[(((pc + 1) & 0xff) % Genome.genomeSize)];
-        }
-        tick(x, y, ++recurs);
-      }
-      break;
 
     case growLeaf:
       {
-        if (energy > 2*LeafGrowEnergy && head) {
-          energy -= LeafGrowEnergy;
-          // 1. get new direction from next genes
-          int direction = genome.genes[((pc++ & 0xff) % Genome.genomeSize)];
-          // 2. check dir is empty, then grow leaf
-
-          //for (int i = 0; i < direction*3/Genome.genomeSize; i++) {
-          PVector v = newDir(x, y, direction);
-          if (dirIsEmpty(v)) {
+        if (energy > LeafGrowEnergy /*&& head*/) { //<>//
+          PVector v = getDirection(x, y);
+          if (v != null) {
             array[(int)v.x][(int)v.y] = new Cell(this);
+            pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
+          } else {
+            pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
           }
-          head = false;
-          //}
         }
+      }
+      break;
+
+    case bifurcate:
+      ArrayList<PVector> dirs = getEmptyDirections(x, y); //<>//
+      if (dirs.size() > 1) {
+        if (energy > 2*LeafGrowEnergy /*&& head*/) {
+          PVector v = dirs.get(0);
+          array[(int)v.x][(int)v.y] = new Cell(this);
+          v = dirs.get(1);
+          array[(int)v.x][(int)v.y] = new Cell(this);
+        }
+        pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
+      } else {
+        pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
       }
       break;
 
     case checkIamSeed:
-      if (isSeed) {
-        pc = genome.genes[(((pc) & 0xff) % Genome.genomeSize)];
-      } else {
+      if (isSeed) { //<>//
         pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
+      } else {
+        pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
       }
-
-      tick(x, y, ++recurs);
       break;
 
-    case checkIamOnTop:
+    case isThereSun:
+      {
+        float sunAmount = sunEnergy/2; //<>//
+        int cellCnt = 0;
+        for (int yy = 0; yy < height/gridSize; ++yy) {
+          Cell c = array[x][yy];
+          if (c != null && !c.isSeed) {
+            if (c == this) break;
+            if (cellCnt++ > 3) {
+              sunAmount= 0;
+              break;
+            }
+            sunAmount /=1.5;
+          }
+        }
+        if (sunAmount > 0) {
+          pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
+        } else {
+          pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
+        }
+      }
       break;
-    case checkIamCoverdByOther:
+    case timeMoreThanHalf:
+      if (millis() - milis > generationTime/2) { //<>//
+        pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
+      } else {
+        pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
+      }
       break;
     default:
+      pc++; //<>//
       break;
     }
   }
@@ -301,12 +356,12 @@ void killAllTrees() {
 }
 
 void setup() {
-  size(3000, 2000);
+  size(1250, 680);
   array = new Cell[width/gridSize][height/gridSize];
   background(0);
   colorMode(HSB, 65535, 100, 100);
-  for (int i = 0; i < 200; ++i) {
-    array[(int)random(width/gridSize)][height/(gridSize)-1] = new Cell(startCellEnergy);
+  for (int i = 0; i < width/gridSize; ++i) {
+    array[i][height/(gridSize)-1] = new Cell(startCellEnergy);
   }
   frameRate(200);
 }
@@ -334,13 +389,38 @@ void mouseClicked() {
 void keyPressed() {
 
   if (keyCode == UP) {
-    sunEnergy += 0.1;
+    sunEnergy += 1;
   } else if (keyCode == DOWN) {
-    sunEnergy -= 0.1;
+    sunEnergy -= 1;
   }
-  println("sun " + sunEnergy);
+  if (keyPressed) {
+    if (key == 'n') {
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+    }
+  }
+  if (keyPressed) {
+    if (key == 'r') {
+      killAllTrees();
+      for (int i = 0; i < width/gridSize; ++i) {
+        array[i][height/(gridSize)-1] = new Cell(startCellEnergy);
+        state = WorldState.Grow;
+        
+      }
+    }
+  }
 }
-
 
 int killDelay = 0;
 int maxEnergy = 0;
@@ -359,6 +439,7 @@ WorldState state = WorldState.Grow;
 int frmCount = 0;
 int frameInterval = millis();
 int fps;
+int generationCounter = 1;
 void draw() {
 
   background(0);
@@ -372,14 +453,16 @@ void draw() {
     fps = frmCount;
     frmCount = 0;
   }
+  text("gen: " + generationCounter, 180, 80);
   text("fps: " + fps, 10, 80);
-
-
+  text("sun: " + sunEnergy, width-200, 80);
   switch(state) {
 
   case Grow:
-    lifeTick();
-    if (millis() - milis > 22000) {
+    for (int i = 0; i < 1; i++) {
+      lifeTick();
+    }
+    if (millis() - milis > generationTime) {
       milis = millis();
       state = WorldState.KillTrees;
     }
@@ -388,6 +471,7 @@ void draw() {
   case KillTrees:
     killAllTrees();
     state = WorldState.DropSeeds;
+    generationCounter++;
     break;
 
   case DropSeeds:
@@ -403,7 +487,7 @@ void draw() {
     }
     break;
   }
-//println("will draw " + millis());
+  //println("will draw " + millis());
   int maxEnergyLocal = 0;
   // draw cells
   for (int y = 0; y < height/gridSize; y++) {
