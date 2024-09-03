@@ -1,11 +1,13 @@
-// constant //<>// //<>//
+// constant //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
 final static float LeafGrowEnergy = 1500;
-final static float makeSeedEnergy = 7500;
+final static float makeSeedEnergy = 17500;
 final static int startCellEnergy = 5500;
-static int sunEnergy = 3000;
-static final int generationTime = 12000;
+static int sunEnergy = 300;
 
-final int gridSize = 32;
+static int tickPerFrame = 6;
+static final int generationTick = 3000;
+
+final int gridSize = 10;
 
 // 35 62 49 20 45 0 38 36 27 59 30 30 20 63 34 14 62 28 7 3 27 53 29 10 5 6 14 37 4 15 61 6 18 23 22 54 20 13 3 56 20 1 34 56 52 48 34 63 60 14 18 18 46 57 6 57 3 22 61 5 46 23 1 40
 //{11,20,46,52,54,54,39,44,45,61,47,26,27,30,20,52,31,30,6,49,1,51,39,9,13,49,1,10,7,5,3,57,38,43,39,45,37,58,30,63,23,50,2,47,44,45,52,14,0,9,22,4,40,49,62,24,12,4,39,30,55,10,28,26}
@@ -14,17 +16,17 @@ final int gridSize = 32;
 int globalIndex = 0;
 Cell[][] array = null;
 
-ArrayList<Cell> cells = new ArrayList();
+//ArrayList<Cell> cells = new ArrayList();
 
 class Genome {
   static final int genomeSize = 64;
 
-  byte[] genes = new byte[genomeSize];//{35, 62, 49, 20, 45, 0, 38, 36, 27, 59, 30, 30, 20, 63, 34, 14, 62, 28, 7, 3, 27, 53, 29, 10, 5, 6, 14, 37, 4, 15, 61, 6, 18, 23, 22, 54, 20, 13, 3, 56, 20, 1, 34, 56, 52, 48, 34, 63, 60, 14, 18, 18, 46, 57, 6, 57, 3, 22, 61, 5, 46, 23, 1, 40}; //new byte[genomeSize];
-
+  //byte[] genes = new byte[genomeSize];//{35, 62, 49, 20, 45, 0, 38, 36, 27, 59, 30, 30, 20, 63, 34, 14, 62, 28, 7, 3, 27, 53, 29, 10, 5, 6, 14, 37, 4, 15, 61, 6, 18, 23, 22, 54, 20, 13, 3, 56, 20, 1, 34, 56, 52, 48, 34, 63, 60, 14, 18, 18, 46, 57, 6, 57, 3, 22, 61, 5, 46, 23, 1, 40}; //new byte[genomeSize];
+  byte[] genes ={48, 6, 28, 53, 54, 25, 29, 54, 31, 19, 50, 17, 41, 38, 50, 44, 23, 50, 57, 59, 4, 59, 11, 51, 44, 38, 41, 29, 61, 58, 23, 29, 20, 44, 25, 59, 0, 41, 62, 45, 9, 1, 60, 41, 22, 26, 55, 19, 50, 63, 57, 30, 55, 27, 56, 59, 7, 5, 58, 50, 61, 10, 41, 20};
   Genome() {
-    for (int i = 0; i < genes.length; ++i) {
-      genes[i] = (byte)random(genomeSize);
-    }
+    //for (int i = 0; i < genes.length; ++i) {
+    //  genes[i] = (byte)random(genomeSize);
+    //}
   }
 
   Genome(Genome other) {
@@ -89,7 +91,13 @@ class Cell {
     ArrayList<PVector> dirs = new ArrayList();
     for (int i = 0; i < 5; ++i) {
       PVector d = newDir(x, y, i);
-      if (d != null) {
+
+      //PVector gap = null;
+      //if (d != null) {
+      // gap = newDir((int)d.x, (int)d.y, i);
+      //}
+
+      if (d != null && (array[(int)d.x][(int)d.y] == null) /*&& gap != null && (array[(int)gap.x][(int)gap.y] == null)*/) {
         dirs.add(d);
       }
     }
@@ -108,13 +116,13 @@ class Cell {
 
     switch(direction) {
     case 0:
-      if (x == width/gridSize - 1) return null;
-      if (y == height/gridSize - 1) return null;
+      if (x == width/gridSize - 1) return new PVector(0, y);
+
       return new PVector(x + 1, y);
 
     case 1:
-      if (x == width/gridSize - 1) return null;
       if (y == 0) return null;
+      if (x == width/gridSize - 1) return new PVector(0, y-1);
       return new PVector(x+1, y-1);
 
     case 2:
@@ -122,13 +130,13 @@ class Cell {
       return new PVector(x, y-1);
 
     case 3:
-      if (x == 0) return null;
       if (y == 0) return null;
+      if (x == 0) return new PVector(width/gridSize - 1, y-1);
+
       return new PVector(x-1, y-1);
 
     case 4:
-      if (x == 0) return null;
-      if (y == height/gridSize - 1) return null;
+      if (x == 0) return new PVector(width/gridSize - 1, y);
       return new PVector(x-1, y);
     }
     return null;
@@ -157,7 +165,7 @@ class Cell {
     switch(cmd) {
     case makeSeed:
       {
-        if (this.isSeed) break; //<>//
+        if (this.isSeed) break;
         PVector v = getDirection(x, y);
         if (v != null && energy > makeSeedEnergy) {
           Cell c = new Cell(this);
@@ -176,7 +184,7 @@ class Cell {
 
     case photosynthesis:
       {
-        if (isSeed) break; //<>//
+        if (isSeed) break;
         float sunAmount = sunEnergy/2;
         int cellCnt = 0;
         for (int yy = 0; yy < height/gridSize; ++yy) {
@@ -202,7 +210,7 @@ class Cell {
 
     case growLeaf:
       {
-        if (energy > LeafGrowEnergy /*&& head*/) { //<>//
+        if (energy > LeafGrowEnergy /*&& head*/) {
           PVector v = getDirection(x, y);
           if (v != null) {
             array[(int)v.x][(int)v.y] = new Cell(this);
@@ -215,7 +223,7 @@ class Cell {
       break;
 
     case bifurcate:
-      ArrayList<PVector> dirs = getEmptyDirections(x, y); //<>//
+      ArrayList<PVector> dirs = getEmptyDirections(x, y);
       if (dirs.size() > 1) {
         if (energy > 2*LeafGrowEnergy /*&& head*/) {
           PVector v = dirs.get(0);
@@ -230,7 +238,7 @@ class Cell {
       break;
 
     case checkIamSeed:
-      if (isSeed) { //<>//
+      if (isSeed) {
         pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
       } else {
         pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
@@ -239,7 +247,7 @@ class Cell {
 
     case isThereSun:
       {
-        float sunAmount = sunEnergy/2; //<>//
+        float sunAmount = sunEnergy/2;
         int cellCnt = 0;
         for (int yy = 0; yy < height/gridSize; ++yy) {
           Cell c = array[x][yy];
@@ -260,14 +268,14 @@ class Cell {
       }
       break;
     case timeMoreThanHalf:
-      if (millis() - milis > generationTime/2) { //<>//
+      if (ticks > generationTick/2) {
         pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
       } else {
         pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
       }
       break;
     default:
-      pc++; //<>//
+      pc++;
       break;
     }
   }
@@ -340,8 +348,8 @@ void killOldSeeds() {
 }
 
 void killAllTrees() {
-  for (int y = 0; y < height/gridSize; y++) {
-    for (int x = 0; x < width/gridSize; x++) {
+  for (int y = 0; y < height/gridSize; ++y) {
+    for (int x = 0; x < width/gridSize; ++x) {
       Cell c = array[x][y];
       if (c != null && !c.isSeed) {
         array[x][y] = null;
@@ -356,7 +364,7 @@ void killAllTrees() {
 }
 
 void setup() {
-  size(1250, 680);
+  size(3000, 2000);
   array = new Cell[width/gridSize][height/gridSize];
   background(0);
   colorMode(HSB, 65535, 100, 100);
@@ -389,25 +397,19 @@ void mouseClicked() {
 void keyPressed() {
 
   if (keyCode == UP) {
-    sunEnergy += 1;
+    sunEnergy += 10;
   } else if (keyCode == DOWN) {
-    sunEnergy -= 1;
+    sunEnergy -= 10;
+  } else if (keyCode == LEFT) {
+    tickPerFrame -= 10;
+  } else if (keyCode == RIGHT) {
+    tickPerFrame += 10;
   }
   if (keyPressed) {
     if (key == 'n') {
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
-      array[(int)random(width/gridSize)][(height/(gridSize))-1] = new Cell(startCellEnergy);
+      for (int i = 0; i < width/gridSize; ++i) {
+        array[i][height/(gridSize)-1] = new Cell(startCellEnergy);
+      }
     }
   }
   if (keyPressed) {
@@ -416,7 +418,6 @@ void keyPressed() {
       for (int i = 0; i < width/gridSize; ++i) {
         array[i][height/(gridSize)-1] = new Cell(startCellEnergy);
         state = WorldState.Grow;
-        
       }
     }
   }
@@ -425,6 +426,7 @@ void keyPressed() {
 int killDelay = 0;
 int maxEnergy = 0;
 int milis = millis();
+int ticks = 0;
 boolean grow = true;
 
 enum WorldState {
@@ -453,19 +455,23 @@ void draw() {
     fps = frmCount;
     frmCount = 0;
   }
-  text("gen: " + generationCounter, 180, 80);
+  text("gen: " + generationCounter + "(" + 100 * ticks / generationTick + "%)", 180, 80);
   text("fps: " + fps, 10, 80);
   text("sun: " + sunEnergy, width-200, 80);
+  text("ticks: " + tickPerFrame, width-400, 80);
   switch(state) {
 
   case Grow:
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < tickPerFrame; i++) {
       lifeTick();
+      ticks++;
+      if (ticks > generationTick) {
+        ticks = 0;
+        state = WorldState.KillTrees;
+        break;
+      }
     }
-    if (millis() - milis > generationTime) {
-      milis = millis();
-      state = WorldState.KillTrees;
-    }
+
     break;
 
   case KillTrees:
@@ -483,8 +489,15 @@ void draw() {
   case KillExtraSeeds:
     killOldSeeds();
     if (!moveSeeds()) {
+      // kill some other
+      for (int i = 0; i < width/gridSize; ++i) {
+        if (i % 5 != 0) {
+          array[i][height/gridSize-1] = null;
+        }
+      }
       state = WorldState.Grow;
     }
+
     break;
   }
   //println("will draw " + millis());
@@ -502,7 +515,11 @@ void draw() {
           clr = (int)map(c.energy, 0, maxEnergy, 0, 30000);
         }
         if (c.isSeed) {
+          stroke(color(20, 100, 100));
+          strokeWeight(2);
           fill(color(20, 100, 100));
+          strokeWeight(1);
+          stroke(0);
         } else {
           fill(color(clr, 100, 100));
         }
