@@ -1,10 +1,10 @@
-// constant //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
+// constant //<>//
 final static float LeafGrowEnergy = 1500;
-final static float makeSeedEnergy = 17500;
+final static float makeSeedEnergy = 7000;
 final static int startCellEnergy = 5500;
 static int sunEnergy = 300;
 
-static int tickPerFrame = 6;
+static int tickPerFrame = 11;
 static final int generationTick = 3000;
 
 final int gridSize = 10;
@@ -21,12 +21,12 @@ Cell[][] array = null;
 class Genome {
   static final int genomeSize = 64;
 
-  //byte[] genes = new byte[genomeSize];//{35, 62, 49, 20, 45, 0, 38, 36, 27, 59, 30, 30, 20, 63, 34, 14, 62, 28, 7, 3, 27, 53, 29, 10, 5, 6, 14, 37, 4, 15, 61, 6, 18, 23, 22, 54, 20, 13, 3, 56, 20, 1, 34, 56, 52, 48, 34, 63, 60, 14, 18, 18, 46, 57, 6, 57, 3, 22, 61, 5, 46, 23, 1, 40}; //new byte[genomeSize];
-  byte[] genes ={48, 6, 28, 53, 54, 25, 29, 54, 31, 19, 50, 17, 41, 38, 50, 44, 23, 50, 57, 59, 4, 59, 11, 51, 44, 38, 41, 29, 61, 58, 23, 29, 20, 44, 25, 59, 0, 41, 62, 45, 9, 1, 60, 41, 22, 26, 55, 19, 50, 63, 57, 30, 55, 27, 56, 59, 7, 5, 58, 50, 61, 10, 41, 20};
+  byte[] genes = new byte[genomeSize];
+  //byte[] genes ={48, 6, 28, 53, 54, 25, 29, 54, 31, 19, 50, 17, 41, 38, 50, 44, 23, 50, 57, 59, 4, 59, 11, 51, 44, 38, 41, 29, 61, 58, 23, 29, 20, 44, 25, 59, 0, 41, 62, 45, 9, 1, 60, 41, 22, 26, 55, 19, 50, 63, 57, 30, 55, 27, 56, 59, 7, 5, 58, 50, 61, 10, 41, 20};
   Genome() {
-    //for (int i = 0; i < genes.length; ++i) {
-    //  genes[i] = (byte)random(genomeSize);
-    //}
+    for (int i = 0; i < genes.length; ++i) {
+      genes[i] = (byte)random(genomeSize);
+    }
   }
 
   Genome(Genome other) {
@@ -81,9 +81,9 @@ class Cell {
 
   Cell (Cell other) {
     this.genome = new Genome(other.genome);
-    this.energy = other.energy/2;
+    this.energy = other.energy*96/100;
     this.isSeed = false;
-    other.energy = this.energy;
+    other.energy = 0;
     this.id = other.id;
   }
 
@@ -92,12 +92,7 @@ class Cell {
     for (int i = 0; i < 5; ++i) {
       PVector d = newDir(x, y, i);
 
-      //PVector gap = null;
-      //if (d != null) {
-      // gap = newDir((int)d.x, (int)d.y, i);
-      //}
-
-      if (d != null && (array[(int)d.x][(int)d.y] == null) /*&& gap != null && (array[(int)gap.x][(int)gap.y] == null)*/) {
+      if (d != null && (array[(int)d.x][(int)d.y] == null)) {
         dirs.add(d);
       }
     }
@@ -165,7 +160,7 @@ class Cell {
     switch(cmd) {
     case makeSeed:
       {
-        if (this.isSeed) break;
+        if (this.isSeed  || this.head == false) break;
         PVector v = getDirection(x, y);
         if (v != null && energy > makeSeedEnergy) {
           Cell c = new Cell(this);
@@ -173,8 +168,9 @@ class Cell {
           c.isSeed = true;
           if ((int)random(5) == 3) {
             c.genome.mutate();
+            c.id = (int)random(65000);
           }
-          c.id = (int)random(65000);
+
           pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
         } else {
           pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
@@ -210,8 +206,9 @@ class Cell {
 
     case growLeaf:
       {
-        if (energy > LeafGrowEnergy /*&& head*/) {
+        if (energy > LeafGrowEnergy && head) {
           PVector v = getDirection(x, y);
+          head = false;
           if (v != null) {
             array[(int)v.x][(int)v.y] = new Cell(this);
             pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
@@ -223,17 +220,27 @@ class Cell {
       break;
 
     case bifurcate:
-      ArrayList<PVector> dirs = getEmptyDirections(x, y);
-      if (dirs.size() > 1) {
-        if (energy > 2*LeafGrowEnergy /*&& head*/) {
-          PVector v = dirs.get(0);
-          array[(int)v.x][(int)v.y] = new Cell(this);
-          v = dirs.get(1);
-          array[(int)v.x][(int)v.y] = new Cell(this);
+      if (head) {
+        head = false;
+        ArrayList<PVector> dirs = getEmptyDirections(x, y);
+        if (dirs.size() > 1) {
+          if (energy > 2*LeafGrowEnergy && head) {
+            Cell c0 = new Cell(this);
+            Cell c1 = new Cell(this);
+
+            PVector v = dirs.get(0);
+            array[(int)v.x][(int)v.y] = c0;
+
+            v = dirs.get(1);
+            array[(int)v.x][(int)v.y] = c1;
+            // fix distributed energy
+            c1.energy = c0.energy/2;
+            c0.energy = c1.energy;
+          }
+          pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
+        } else {
+          pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
         }
-        pc = genome.genes[((pc+1 & 0xff) % Genome.genomeSize)];
-      } else {
-        pc = genome.genes[((pc+2 & 0xff) % Genome.genomeSize)];
       }
       break;
 
@@ -268,7 +275,7 @@ class Cell {
       }
       break;
     case timeMoreThanHalf:
-      if (ticks > generationTick/2) {
+      if (ticks > generationTick*2/3) {
         pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
       } else {
         pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
@@ -276,6 +283,7 @@ class Cell {
       break;
     default:
       pc++;
+      //pc = genome.genes[(((pc) & 0xff) % Genome.genomeSize)];
       break;
     }
   }
@@ -331,17 +339,22 @@ void killOldSeeds() {
 
     int number = 0;
 
+    //for (int y = height/gridSize - 2; y >= 0; --y) {
+    //  array[x][y] = null;
+    //}
+
+
     while (array[x][height/gridSize - 1 - number] != null) {
       number++;
     }
 
     if (number > 1) {
       // pick lucky
-      int remained = (int)random(number);
-      for (int i = 0; i < number; ++i) {
-        if (i != remained) {
-          array[x][height/gridSize - i - 1] = null;
-        }
+      //int remained = number;
+      for (int i = 0; i < number-1; ++i) {
+        //if (i != remained) {
+        array[x][height/gridSize - i - 1] = null;
+        //}
       }
     }
   }
@@ -408,7 +421,9 @@ void keyPressed() {
   if (keyPressed) {
     if (key == 'n') {
       for (int i = 0; i < width/gridSize; ++i) {
-        array[i][height/(gridSize)-1] = new Cell(startCellEnergy);
+        if (array[i][(height/gridSize)-1] == null) {
+          array[i][height/(2*gridSize)] = new Cell(startCellEnergy);
+        }
       }
     }
   }
@@ -489,10 +504,21 @@ void draw() {
   case KillExtraSeeds:
     killOldSeeds();
     if (!moveSeeds()) {
-      // kill some other
-      for (int i = 0; i < width/gridSize; ++i) {
-        if (i % 5 != 0) {
-          array[i][height/gridSize-1] = null;
+      //// kill some other
+      //for (int i = 0; i < width/gridSize; ++i) {
+      //  if (i % 5 != 0) {
+      //    array[i][height/gridSize-1] = null;
+      //  }
+      //}
+      boolean hasSeed = false;
+      for (int x = 0; x < width/gridSize-1; ++x) {
+        hasSeed |= array[x][height/gridSize-1] != null;
+      }
+      if (!hasSeed) {
+        for (int i = 0; i < width/gridSize; ++i) {
+          if (array[i][(height/gridSize)-1] == null) {
+            array[i][height/(2*gridSize)] = new Cell(startCellEnergy);
+          }
         }
       }
       state = WorldState.Grow;
