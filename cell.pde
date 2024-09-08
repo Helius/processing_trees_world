@@ -8,7 +8,7 @@ class Cell {
   final static byte bifurcate = 20;
   final static byte checkIamSeed = 30;
   final static byte photosynthesis = 40;
-  final static byte timeMoreThanHalf = 50;
+  final static byte timeMoreThan = 50;
 
   Genome genome = new Genome();
   byte pc = 0;
@@ -235,11 +235,13 @@ class Cell {
       //    }
       //  }
       //  break;
-    case timeMoreThanHalf:
-      if (ticks > generationTick*2/3) {
-        pc = genome.genes[(((pc+1) & 0xff) % Genome.genomeSize)];
+    case timeMoreThan:
+      pc++;
+      int value = genome.genes[(pc & 0xff) % Genome.genomeSize] & 0xff;
+      if (value > map(ticks, 0, generationTick, 0, Genome.genomeSize-1)) {
+        pc = genome.genes[((pc+1) & 0xff) % Genome.genomeSize];
       } else {
-        pc = genome.genes[(((pc+2) & 0xff) % Genome.genomeSize)];
+        pc = genome.genes[((pc+2) & 0xff) % Genome.genomeSize];
       }
       break;
     default:

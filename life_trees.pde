@@ -54,16 +54,16 @@ void killOldSeeds() {
     int number = 0;
 
     while (array[x][height/gridSize - 1 - number] != null) {
-      number++;
+      ++number;
     }
 
     if (number > 1) {
       // pick lucky
-      //int remained = number;
+      int remained = (int)random(0, number);
       for (int i = 0; i < number-1; ++i) {
-        //if (i != remained) {
-        array[x][height/gridSize - i - 1] = null;
-        //}
+        if (i != remained) {
+          array[x][height/gridSize - i - 1] = null;
+        }
       }
     }
   }
